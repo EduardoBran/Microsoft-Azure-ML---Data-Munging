@@ -22,7 +22,11 @@ getwd()
 
 # - Conectar os dois datasets nas duas protas de entrada do módulo "Execute R Script"
 
-# Agora vamos análisar o código R abaixo que estará em arquivo R separado:
+# - Coṕiar o código abaixo e colar no módulo "Execute R Script"
+# - Alterar valor da variável Azure
+# - Alterar configuração do "R version" para CRAN 3.1.0
+
+# Agora vamos análisar o código R abaixo que também estará em arquivo R separado:
 
 
 # Variável que controla a execução do script (Se o valor for FALSE, o codigo sera executado no RStudio.)
@@ -59,6 +63,7 @@ df <- as.data.frame(restaurantes %>%
 
 # Visualizando dataset criado
 df
+head(df)
 View(df)
 
 
@@ -68,6 +73,9 @@ if(Azure) maml.mapOutputPort("df")
 # - Este código foi criado para executar tanto no Azure, quanto no RStudio.
 # - Para executar no Azure, altere o valor da variavel Azure para TRUE. 
 # - Se o valor for FALSE, o codigo sera executado no RStudio.
+
+
+
 
 
 
