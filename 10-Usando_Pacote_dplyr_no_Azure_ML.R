@@ -29,7 +29,8 @@ getwd()
 # Agora vamos análisar o código R abaixo que também estará em arquivo R separado:
 
 
-# Variável que controla a execução do script (Se o valor for FALSE, o codigo sera executado no RStudio.)
+# Variável que controla a execução do script
+# (Se o valor for FALSE, o codigo sera executado no RStudio.)
 Azure = FALSE
 
 if(Azure){
