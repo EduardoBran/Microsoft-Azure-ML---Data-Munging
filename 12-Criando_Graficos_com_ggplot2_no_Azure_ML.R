@@ -50,3 +50,4 @@ ggplot(Bikes, aes(x = dteday, y = cnt)) +
   ggtitle("Demanda por Bikes as 09:00") +
   theme(text = element_text(size = 20))
 
+
