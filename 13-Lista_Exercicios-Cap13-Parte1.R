@@ -27,6 +27,7 @@ library(randomForest)
 library(caTools)   # contém a função sample.split() que cria uma amostra que irá fazer a divisão entre dados de treinos e testes
 library(caret)     # contém a função createDataPartition para fazer a divisão entre dados de treinos e testes
 
+set.seed(100)
 
 
 
@@ -44,14 +45,15 @@ library(caret)     # contém a função createDataPartition para fazer a divisã
 #####################  Resposta Gabarito  #####################
 
 
-# Carregando o dataset
+## Carregando o dataset
 ?HouseVotes84
 data("HouseVotes84")
 
 head(HouseVotes84)
 View(HouseVotes84)
 
-# Analise exploratória de dados
+
+## Analise exploratória de dados (gerando gráficos para melhor entendimento do dataset)
 plot(as.factor(HouseVotes84[,2]))
 title(main = "Votes cast for issue", xlab = "vote", ylab = "# reps")
 plot(as.factor(HouseVotes84[HouseVotes84$Class == 'republican', 2]))
@@ -59,7 +61,9 @@ title(main = "Republican votes cast for issue 1", xlab = "vote", ylab = "# reps"
 plot(as.factor(HouseVotes84[HouseVotes84$Class == 'democrat',2]))
 title(main = "Democrat votes cast for issue 1", xlab = "vote", ylab = "# reps")
 
-# Funções usadas para imputation
+
+## Funções usadas para imputation
+
 # Função que retorna o numeros de NA's por voto e classe (democrat or republican)
 na_by_col_class <- function (col,cls){return(sum(is.na(HouseVotes84[,col]) & HouseVotes84$Class==cls))}
 
@@ -74,7 +78,7 @@ p_y_col_class(2,'republican')
 na_by_col_class(2,'democrat')
 na_by_col_class(2,'republican')
 
-# Impute missing values
+# Impute missing values (imputando valores ao valores NA)
 for (i in 2:ncol(HouseVotes84)) {
   if(sum(is.na(HouseVotes84[,i])>0)) {
     c1 <- which(is.na(HouseVotes84[,i]) & HouseVotes84$Class == 'democrat',arr.ind = TRUE)
@@ -99,19 +103,33 @@ testHouseVotes84 <- HouseVotes84[HouseVotes84$train == 0, -trainColNum]
 # Exercício 1 - Crie o modelo NaiveBayes e faça as previsões
 
 # Treine o modelo
-?naiveBayes
+modelo_nb <- naiveBayes(Class ~ ., data = trainHouseVotes84)
+
+# Visualizando o modelo
+modelo_nb
+summary(modelo_nb)
+str(modelo_nb)
 
 
+## Realizando previsões
+previsoes <- predict(modelo_nb, newdata = testHouseVotes84)
+
+## Confusion Matrix
+table(pred = previsoes, true = testHouseVotes84$Class)
+
+## Média
+mean(previsoes == testHouseVotes84$Class)
 
 
+## Conferindo as previsões
+resultados <- cbind.data.frame(Class_Real = testHouseVotes84$Class, predictions = previsoes)
+head(resultados)
 
+## Criando um vetor de TRUE/FALSE indicando previsões CORRETAS/INCORRETAS
+resultados_vetor <- resultados$predictions == testHouseVotes84$Class
 
-
-
-
-
-
-
+table(resultados_vetor)                    # FALSE 6                 TRUE 96
+prop.table(table(resultados_vetor))        # FALSE 0.05882353        TRUE 0.94117647
 
 
 
@@ -189,12 +207,14 @@ View(dados)
 #### Tipo de dados
 
 str(dados)
-summary(dados_moda)
+summary(dados)
 dim(dados)
 
 # Verificando dados ausentes
 any(is.na(dados))
 colSums(is.na(dados))
+any(dados == "")
+colSums(dados == "")
 
 
 #### Tratando dados ausentes (substituindo pela Moda)
@@ -294,11 +314,11 @@ head(resultados)
 # Criando um vetor de TRUE/FALSE indicando previsões CORRETAS/INCORRETAS
 resultados_vetor <- resultados$predictions == dados_teste$Class
 
-table(resultados_vetor)                    # FALSE 4                 TRUE 61
-prop.table(table(resultados_vetor))        # FALSE 0.06153846        TRUE 0.93846154
+table(resultados_vetor)                    # FALSE 3                 TRUE 62
+prop.table(table(resultados_vetor))        # FALSE 0.04615385        TRUE 0.95384615
 
 #  -> O modelo que utilizou o dataset com técnica de imputação de valores ausentes MICE teve uma taxa de acerto de
-#     aproximadamente 93,84% no conjunto de teste.
+#     aproximadamente 95,38% no conjunto de teste.
 
 
 
@@ -327,11 +347,11 @@ head(resultados)
 # Criando um vetor de TRUE/FALSE indicando previsões CORRETAS/INCORRETAS
 resultados_vetor <- resultados$predictions == dados_teste$Class
 
-table(resultados_vetor)                    # FALSE 9                 TRUE 56
-prop.table(table(resultados_vetor))        # FALSE 0.1384615         TRUE 0.8615385
+table(resultados_vetor)                    # FALSE 4                 TRUE 61
+prop.table(table(resultados_vetor))        # FALSE 0.06153846        TRUE 0.93846154
 
 #  -> O modelo que utilizou o dataset com técnica de imputação de valores ausentes VIM teve uma taxa de acerto de
-#     aproximadamente 86.15% no conjunto de teste.
+#     aproximadamente 93.84% no conjunto de teste.
 
 
 
