@@ -385,3 +385,4 @@ prop.table(table(resultados_vetor))        # FALSE 0.01538462        TRUE 0.9846
 
 #  -> O modelo que utilizou o dataset com técnica de imputação de valores ausentes MICE teve uma taxa de acerto de
 #     aproximadamente 98.46% no conjunto de teste.
+

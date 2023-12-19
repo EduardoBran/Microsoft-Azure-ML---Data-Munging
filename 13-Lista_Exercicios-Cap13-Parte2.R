@@ -13,7 +13,15 @@ getwd()
 # install.packages("Amelia", dependencies = TRUE)
 
 library(Amelia) # pacote que utiliza funções para definir o volume de dados Missing
+library(cluster) # visualização dos clusters
 library(ggplot2)
+library(caret)     # contém a função createDataPartition para fazer a divisão entre dados de treinos e testes
+
+library(rpart)       # Um dos diversos pacotes para arvores de recisao em R
+library(rpart.plot)  # outro pacote para visualizaco ficar mais legivel
+library(e1071)       # NaiveBayes e Máquina de Vetores de Suporte (SVM)
+library(xgboost)     # Modelo Gradient Boosting
+library(neuralnet)   # Rede Neural
 
 set.seed(1234)
 
@@ -214,13 +222,169 @@ str(dados_mediana)
 
 
 
-## Criando o modelo de classificação 
+#### Criando modelos de classificação 
+
+## Divindo dados em treino e teste
+indices <- createDataPartition(dados_media$Survived, p = 0.85, list = FALSE)
+indices2 <- createDataPartition(dados_mediana$Survived, p = 0.85, list = FALSE)
+
+dados_treino_media <- dados_media[indices, ]
+dados_teste_media <- dados_media[-indices, ]
+dados_treino_mediana <- dados_mediana[indices2, ]
+dados_teste_mediana <- dados_mediana[-indices2, ]
+
+# -> Lembrando sempre que: Treinamos o modelo com dados de TREINO e fazemos predições com dados de TESTE
+
+
+
+## Criando Modelo Árvore de Decisão
+
+modelo_arvore <- rpart(Survived ~ Pclass + Sex + Age + SibSp + Parch + Fare + Embarked, method = "class", data = dados_treino_media)
+modelo_arvore2 <- rpart(Survived ~ Pclass + Sex + Age + SibSp + Parch + Fare + Embarked, method = "class", data = dados_treino_mediana)
+
+modelo_arvore
+modelo_arvore2
+
+# Examinando o resultado de uma árvore de decisao
+printcp(modelo_arvore)
+printcp(modelo_arvore2)
+
+# Visualizando o modelo árvore (execute uma função para o plot e outra para o texto no plot)
+plot(modelo_arvore, uniform = TRUE, main = "Árvore de Decisão em R")
+text(modelo_arvore, use.n = TRUE, all = TRUE)
+
+
+
+## Criando Modelo NaiveBayes 
+
+modelo_naive <- naiveBayes(Survived ~ Pclass + Sex + Age + SibSp + Parch + Fare + Embarked, data = dados_treino_media)
+modelo_naive2 <- naiveBayes(Survived ~ Pclass + Sex + Age + SibSp + Parch + Fare + Embarked, data = dados_treino_mediana)
+
+
+
+## Criando um Modelo de Regressão Logística
+
+modelo_logistico <- glm(Survived ~ Pclass + Sex + Age + SibSp, family = "binomial", data = dados_treino_media)
+modelo_logistico2 <- glm(Survived ~ Pclass + Sex + Age + SibSp, family = "binomial", data = dados_treino_mediana)
+
+summary(modelo_logistico)
+summary(modelo_logistico2)
+
+
+
+# Criando um Modelo SVM
+
+modelo_svm <- svm(Survived ~ Pclass + Sex + Age + SibSp + Parch + Fare + Embarked, data = dados_treino_media)
+modelo_svm2 <- svm(Survived ~ Pclass + Sex + Age + SibSp + Parch + Fare + Embarked, data = dados_treino_mediana)
+
+
+
+# Criando um modelo de Redes Neurais
+dados_treino_media2 <- dados_treino_media
+str(dados_treino_media2)
+
+# Remover colunas não necessárias antes de codificar
+dados_treino_media2 <- dados_treino_media2[, c("Survived", "Pclass", "Sex", "Age", "SibSp", "Parch", "Fare", "Embarked")]
+
+# Converter variáveis Survived e Pclass para numérico
+dados_treino_media2$Survived <- as.numeric(as.character(dados_treino_media2$Survived))
+dados_treino_media2$Pclass <- as.numeric(as.character(dados_treino_media2$Pclass))
+dados_treino_media2$SibSp <- as.numeric(as.character(dados_treino_media2$SibSp))
+dados_treino_media2$Parch <- as.numeric(as.character(dados_treino_media2$Parch))
+
+# Codificar variáveis categóricas usando one-hot encoding
+dados_treino_media2_dummies <- model.matrix(~ . - 1, data = dados_treino_media2)
+
+# Juntar os resultados
+dados_treino_media2 <- cbind(dados_treino_media2, dados_treino_media2_dummies)
+
+# Excluir variáveis categóricas originais
+dados_treino_media2 <- dados_treino_media2[, !grepl("Sex|Embarked", colnames(dados_treino_media2))]
+str(dados_treino_media2)
+
+# Criar um modelo de Redes Neurais
+modelo_rn <- neuralnet(Survived ~ ., data = dados_treino_media2, hidden = c(5, 5), linear.output = TRUE)
+modelo_rn
+
+# Plot do modelo
+plot(modelo_rn)
+
 
 
 
 
 ## Previsões
 
+previsoes_media_arvore <- predict(modelo_arvore, dados_teste_media, type = "class")
+previsoes_mediana_arvore <- predict(modelo_arvore2, dados_teste_mediana, type = "class")
 
+previsoes_media_naive <- predict(modelo_naive, dados_teste_media, type = "class")
+previsoes_mediana_naive <- predict(modelo_naive2, dados_teste_mediana, type = "class")
+
+previsoes_media_regressao <- predict(modelo_logistico, dados_teste_media)
+previsoes_mediana_regressao <- predict(modelo_logistico2, dados_teste_mediana)
+
+previsoes_media_svm <- predict(modelo_svm, dados_teste_media, type = "class")
+previsoes_mediana_svm <- predict(modelo_svm2, dados_teste_mediana, type = "class")
+
+previsoes_media_rn <- predict(modelo_rn, dados_teste_media, type = "class")
+
+
+
+
+## Visualizando perfomance dos modelos
+
+resultados_media_arvore <- cbind.data.frame(Real = dados_teste_media$Survived, predictions = previsoes_media_arvore)
+resultados_mediana_arvore <- cbind.data.frame(Real = dados_teste_mediana$Survived, predictions = previsoes_mediana_arvore)
+
+resultados_media_naive <- cbind.data.frame(Real = dados_teste_media$Survived, predictions = previsoes_media_naive)
+resultados_mediana_naive <- cbind.data.frame(Real = dados_teste_mediana$Survived, predictions = previsoes_mediana_naive)
+
+resultados_media_regressao <- cbind.data.frame(Real = dados_teste_media$Survived, predictions = as.integer(previsoes_media_regressao))
+resultados_mediana_regressao <- cbind.data.frame(Real = dados_teste_mediana$Survived, predictions = as.integer(previsoes_mediana_regressao))
+
+resultados_media_naive <- cbind.data.frame(Real = dados_teste_media$Survived, predictions = previsoes_media_svm)
+resultados_mediana_naive <- cbind.data.frame(Real = dados_teste_mediana$Survived, predictions = previsoes_mediana_svm)
+
+
+## Criando um vetor de TRUE/FALSE indicando previsões CORRETAS/INCORRETAS
+vetor_media_arvore <- previsoes_media_arvore == dados_teste_media$Survived
+vetor_mediana_arvore <- previsoes_mediana_arvore == dados_teste_mediana$Survived
+
+table(vetor_media_arvore)                      # FALSE 27         TRUE 106
+prop.table(table(vetor_media_arvore))          # FALSE 0.2030075  TRUE 0.7969925  
+
+table(vetor_mediana_arvore)                    # FALSE 33            TRUE 100
+prop.table(table(vetor_mediana_arvore))        # FALSE 0.2481203     TRUE 0.7518797 
+
+
+vetor_media_naive <- previsoes_media_naive == dados_teste_media$Survived
+vetor_mediana_naive <- previsoes_mediana_naive == dados_teste_mediana$Survived
+
+table(vetor_media_naive)                      # FALSE 40         TRUE 93
+prop.table(table(vetor_media_naive))          # FALSE 0.3007519  TRUE 0.6992481  
+
+table(vetor_mediana_naive)                    # FALSE 37            TRUE 96
+prop.table(table(vetor_mediana_naive))        # FALSE 0.2781955     TRUE 0.7218045 
+
+
+vetor_media_regressao <- as.integer(previsoes_media_regressao) == dados_teste_media$Survived
+vetor_mediana_regressao <- as.integer(previsoes_mediana_regressao) == dados_teste_mediana$Survived
+
+table(vetor_media_regressao)                      # FALSE 101         TRUE 32
+prop.table(table(vetor_media_regressao))          # FALSE 0.7593985   TRUE 0.2406015  
+
+table(vetor_mediana_regressao)                    # FALSE 100            TRUE 33
+prop.table(table(vetor_mediana_regressao))        # FALSE 0.7518797      TRUE 0.2481203 
+
+
+vetor_media_svm <- previsoes_media_svm == dados_teste_media$Survived
+vetor_mediana_svm <- previsoes_mediana_svm == dados_teste_mediana$Survived
+
+table(vetor_media_svm)                      # FALSE 26         TRUE 107
+prop.table(table(vetor_media_svm))          # FALSE 0.1954887  TRUE 0.8045113  
+
+table(vetor_mediana_svm)                    # FALSE 27            TRUE 106
+prop.table(table(vetor_mediana_svm))        # FALSE 0.2030075     TRUE 0.7969925 
 
 
