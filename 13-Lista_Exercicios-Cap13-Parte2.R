@@ -16,6 +16,8 @@ library(Amelia) # pacote que utiliza funções para definir o volume de dados Mi
 library(cluster) # visualização dos clusters
 library(ggplot2)
 library(caret)     # contém a função createDataPartition para fazer a divisão entre dados de treinos e testes
+library(caTools)
+library(dplyr)
 
 library(rpart)       # Um dos diversos pacotes para arvores de recisao em R
 library(rpart.plot)  # outro pacote para visualizaco ficar mais legivel
@@ -32,7 +34,11 @@ set.seed(1234)
 # - Este dataset é famoso e usamos parte dele nas aulas de SQL.
 #   Ele normalmente é usado por aqueles que estão começando em Machine Learning.
 
-#  -> Seu objetivo é prever uma classificação - sobreviventes e não sobreviventes
+#  -> Seu objetivo é prever uma classificação - sobreviventes e não sobreviventes.
+
+#  -> Ou seja, basicamente queremos fazer a previsão se um passageiro do Titanic irá sobreviver ou não ao naufrágio.
+#     Estamos usando dados históricos de um naufrágio que já aconteceu para prever possíveis sobreviventes ou não de um
+#     possível novo naufrágio.
 
 
 
@@ -41,7 +47,7 @@ set.seed(1234)
 
 
 ## Carregando o dataset de dados_treino
-dados_treino <- read.csv('titanic-train.csv')
+dados <- read.csv('titanic-train.csv')
 View(dados_treino)
 
 
@@ -52,7 +58,7 @@ View(dados_treino)
 # Cerca de 20% dos dados sobre idade estão Missing (faltando)
 
 ?missmap
-missmap(dados_treino, 
+missmap(dados, 
         main = "Titanic Training Data - Mapa de Dados Missing", 
         col = c("yellow", "black"), 
         legend = FALSE)
@@ -60,25 +66,28 @@ missmap(dados_treino,
 
 # Visualizando os dados (gráfico)
 
-ggplot(dados_treino,aes(Survived)) + geom_bar()
-ggplot(dados_treino,aes(Pclass)) + geom_bar(aes(fill = factor(Pclass)), alpha = 0.5)
-ggplot(dados_treino,aes(Sex)) + geom_bar(aes(fill = factor(Sex)), alpha = 0.5)
-ggplot(dados_treino,aes(Age)) + geom_histogram(fill = 'blue', bins = 20, alpha = 0.5)
-ggplot(dados_treino,aes(SibSp)) + geom_bar(fill = 'red', alpha = 0.5)
-ggplot(dados_treino,aes(Fare)) + geom_histogram(fill = 'green', color = 'black', alpha = 0.5)
+ggplot(dados,aes(Survived)) + geom_bar()
+ggplot(dados,aes(Pclass)) + geom_bar(aes(fill = factor(Pclass)), alpha = 0.5)
+ggplot(dados,aes(Sex)) + geom_bar(aes(fill = factor(Sex)), alpha = 0.5)
+ggplot(dados,aes(Age)) + geom_histogram(fill = 'blue', bins = 20, alpha = 0.5)
+ggplot(dados,aes(SibSp)) + geom_bar(fill = 'red', alpha = 0.5)
+ggplot(dados,aes(Fare)) + geom_histogram(fill = 'green', color = 'black', alpha = 0.5)
 
 
-## Limpando os dados
+## Limpando/Tratando os dados
+
+# Tratando dados NA
 
 # Para tratar os dados missing, usaremos o recurso de imputation.
 # Essa técnica visa substituir os valores missing por outros valores,
 # que podem ser a média da variável ou qualquer outro valor escolhido pelo Cientista de Dados
 
 # Por exemplo, vamos verificar as idades por classe de passageiro (baixa, média, alta):
-pl <- ggplot(dados_treino, aes(Pclass,Age)) + geom_boxplot(aes(group = Pclass, fill = factor(Pclass), alpha = 0.4)) 
+pl <- ggplot(dados, aes(Pclass,Age)) + geom_boxplot(aes(group = Pclass, fill = factor(Pclass), alpha = 0.4)) 
 pl + scale_y_continuous(breaks = seq(min(0), max(80), by = 2))
 
-# Vimos que os passageiros mais ricos, nas classes mais altas, tendem a ser mais velhos. 
+# Podemos ver que os passageiros mais ricos, nas classes mais altas, tendem a ser mais velhos. 
+
 # Usaremos esta média para imputar as idades Missing
 impute_age <- function(age, class){
   out <- age
@@ -102,22 +111,57 @@ impute_age <- function(age, class){
   return(out)
 }
 
-fixed.ages <- impute_age(dados_treino$Age, dados_treino$Pclass)
-dados_treino$Age <- fixed.ages
+# A função impute_age é criada para imputar valores para as idades ausentes com base na classe do passageiro.
+# Se a idade estiver ausente e a classe for 1, a idade será imputada como 37. Se for classe 2, a idade será imputada como 29.
+# Para a classe 3, a idade será imputada como 24. As idades imputadas são então atribuídas ao conjunto de dados.
+
+fixed.ages <- impute_age(dados$Age, dados$Pclass)
+dados$Age <- fixed.ages
+
+summary(dados$Age)
+
 
 # Visualizando o mapa de valores missing (nao existem mais dados missing)
-missmap(dados_treino, 
+missmap(dados, 
         main = "Titanic Training Data - Mapa de Dados Missing", 
         col = c("yellow", "black"), 
         legend = FALSE)
 
 
-# Exercício 1 - Crie o modelo de classificação e faça as previsões
+# Selecionando as Colunas necessárias
+dados <-      
+  dados %>% 
+  select(-PassengerId, -Name, -Ticket, -Cabin)   # removendo variáveis desnecessárias
 
 
 
+#### Criando Modelo (Exercício 1 - Crie o modelo de classificação e faça as previsões)
+
+## Divindo dados em treino e teste
+indices <- createDataPartition(dados$Survived, p = 0.75, list = FALSE)
+
+dados_treino <- dados[indices, ]
+dados_teste <- dados[-indices, ]
 
 
+# Treinando o modelo
+modelo <- glm(Survived ~ ., family = "binomial", data = dados_treino)
+summary(modelo)
+
+
+## Fazendo as Previsões
+previsoes <- predict(modelo, newdata = dados_teste, type = 'response')
+
+# Calculando os valores
+resultados <- ifelse(previsoes > 0.5, 1, 0)
+
+# Calculando Valor Acurácia
+acc <- mean(resultados != dados_teste$Survived)
+
+print(paste('Acuracia', 1-acc)) # 85%
+
+# Criando Confusion Matrix
+table(dados_teste$Survived, previsoes > 0.5)
 
 
 
@@ -141,7 +185,7 @@ head(dados)
 
 # Tipo de dados
 str(dados)
-summary(dados)
+summary(dados_mediana$Age)
 dim(dados)
 
 ## Verificando dados ausentes ou ""
